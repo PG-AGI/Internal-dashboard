@@ -1,0 +1,69 @@
+# this is pushing the code to pre-prod VM
+name: Deploy Toingg internal dashboard
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRE_PROD_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 135.235.136.115 >> ~/.ssh/known_hosts
+
+      # --------------------------
+      # Upload Files to Server
+      # --------------------------
+      - name: Upload files to server
+        run: |
+          ssh -i ~/.ssh/id_rsa azureuser@135.235.136.115 "mkdir -p ~/toingg-internal-dashboard-temp"
+          rsync -avz -e "ssh -i ~/.ssh/id_rsa" \
+            --exclude='.git' --exclude='logs' --exclude='node_modules' \
+            . azureuser@135.235.136.115:~/toingg-internal-dashboard-temp/
+
+      # --------------------------
+      # Deploy with Docker
+      # --------------------------
+      - name: Run Remote Deployment
+        run: |
+          ssh -i ~/.ssh/id_rsa azureuser@135.235.136.115 << 'EOF'
+            set -e
+            echo "Connected to $(hostname)"
+            echo "Cleaning up previous deployment"
+
+            # Stop and remove old container
+            docker stop toingg-internal-dashboard || true
+            docker rm toingg-internal-dashboard || true
+
+            # Replace old deployment directory
+            rm -rf ~/toingg-internal-dashboard
+            mv ~/toingg-internal-dashboard-temp ~/toingg-internal-dashboard
+
+            echo "Deploying fresh version..."
+            cd ~/toingg-internal-dashboard
+
+            # Build Docker image
+            docker build --no-cache -t toingg-internal-dashboard:latest .
+
+            # Run new container
+            docker run -d \
+              --name toingg-internal-dashboard \
+              --restart unless-stopped \
+              -p 3001:3000 \
+              toingg-internal-dashboard:latest
+
+            # Clean up old images
+            docker system prune -f
+            echo "Deployment complete."
+          EOF
