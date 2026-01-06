@@ -54,11 +54,10 @@ jobs:
             cd ~/toingg-internal-dashboard
 
             # Build Docker image
-            DOCKER_BUILDKIT=1 docker build -t toingg-internal-dashboard:latest .
+            docker build --platform linux/amd64 -t toingg-internal-dashboard:latest .
 
             # Run new container
             docker run -d \
-              --platform linux/amd64 \
               --name toingg-internal-dashboard \
               --restart unless-stopped \
               -p 3001:3000 \
@@ -67,4 +66,4 @@ jobs:
             # Clean up old images
             docker system prune -f
             echo "Deployment complete."
-          EOF
+          EOFx
