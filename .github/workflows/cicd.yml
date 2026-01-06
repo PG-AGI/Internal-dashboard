@@ -66,4 +66,4 @@ jobs:
             # Clean up old images
             docker system prune -f
             echo "Deployment complete."
-          EOFx
+          EOF
