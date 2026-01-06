@@ -58,6 +58,7 @@ jobs:
 
             # Run new container
             docker run -d \
+              -- platform linux/amd64
               --name toingg-internal-dashboard \
               --restart unless-stopped \
               -p 3001:3000 \
